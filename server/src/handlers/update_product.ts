@@ -1,10 +1,16 @@
 import { type UpdateProductInput, type Product } from '../schema';
 
-export const updateProduct = async (input: UpdateProductInput): Promise<Product | null> => {
+export async function updateProduct(input: UpdateProductInput): Promise<Product> {
     // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing product in the database.
-    // It should validate the input, update only the provided fields,
-    // update the updated_at timestamp, and return the updated product.
-    // Returns null if the product is not found.
-    return Promise.resolve(null);
-};
+    // The goal of this handler is updating an existing product's details
+    // (name, price, or QR code) and ensuring QR code uniqueness if updated.
+    // Should also update the updated_at timestamp.
+    return Promise.resolve({
+        id: input.id,
+        qr_code: input.qr_code || '', // Placeholder
+        name: input.name || '', // Placeholder
+        price: input.price || 0, // Placeholder
+        created_at: new Date(), // Placeholder
+        updated_at: new Date()
+    } as Product);
+}

@@ -1,106 +1,80 @@
-import { serial, text, pgTable, timestamp, numeric, integer, foreignKey } from 'drizzle-orm/pg-core';
+import { serial, text, pgTable, timestamp, numeric, integer, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+
+// Enums
+export const paymentTypeEnum = pgEnum('payment_type', ['cash', 'card']);
+export const orderStatusEnum = pgEnum('order_status', ['pending', 'completed', 'cancelled']);
 
 // Products table
 export const productsTable = pgTable('products', {
   id: serial('id').primaryKey(),
+  qr_code: text('qr_code').notNull().unique(), // Unique QR code identifier for scanning
   name: text('name').notNull(),
-  description: text('description'), // Nullable by default
-  stock_quantity: integer('stock_quantity').notNull().default(0),
-  purchase_price: numeric('purchase_price', { precision: 10, scale: 2 }).notNull(), // Harga beli
-  selling_price: numeric('selling_price', { precision: 10, scale: 2 }).notNull(), // Harga jual
+  price: numeric('price', { precision: 10, scale: 2 }).notNull(), // Use numeric for monetary values
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull()
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Customers table
-export const customersTable = pgTable('customers', {
+// Orders table
+export const ordersTable = pgTable('orders', {
   id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  phone: text('phone'), // Nullable by default
-  email: text('email'), // Nullable by default
-  address: text('address'), // Nullable by default
-  created_at: timestamp('created_at').defaultNow().notNull()
-});
-
-// Transactions table
-export const transactionsTable = pgTable('transactions', {
-  id: serial('id').primaryKey(),
-  customer_id: integer('customer_id'), // Nullable for walk-in customers
   total_amount: numeric('total_amount', { precision: 10, scale: 2 }).notNull(),
-  transaction_date: timestamp('transaction_date').defaultNow().notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull()
-}, (table) => ({
-  customerFk: foreignKey({
-    columns: [table.customer_id],
-    foreignColumns: [customersTable.id]
-  })
-}));
+  payment_type: paymentTypeEnum('payment_type').notNull(),
+  status: orderStatusEnum('status').notNull().default('pending'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
 
-// Transaction items table
-export const transactionItemsTable = pgTable('transaction_items', {
+// Order items table (junction table for orders and products)
+export const orderItemsTable = pgTable('order_items', {
   id: serial('id').primaryKey(),
-  transaction_id: integer('transaction_id').notNull(),
-  product_id: integer('product_id').notNull(),
+  order_id: integer('order_id').notNull().references(() => ordersTable.id, { onDelete: 'cascade' }),
+  product_id: integer('product_id').notNull().references(() => productsTable.id, { onDelete: 'cascade' }),
   quantity: integer('quantity').notNull(),
-  unit_price: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
-  subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull()
-}, (table) => ({
-  transactionFk: foreignKey({
-    columns: [table.transaction_id],
-    foreignColumns: [transactionsTable.id]
-  }),
-  productFk: foreignKey({
-    columns: [table.product_id],
-    foreignColumns: [productsTable.id]
-  })
-}));
+  unit_price: numeric('unit_price', { precision: 10, scale: 2 }).notNull(), // Price at time of order
+  subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(), // quantity * unit_price
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
 
 // Relations
-export const productsRelations = relations(productsTable, ({ many }) => ({
-  transactionItems: many(transactionItemsTable),
+export const ordersRelations = relations(ordersTable, ({ many }) => ({
+  items: many(orderItemsTable),
 }));
 
-export const customersRelations = relations(customersTable, ({ many }) => ({
-  transactions: many(transactionsTable),
-}));
-
-export const transactionsRelations = relations(transactionsTable, ({ one, many }) => ({
-  customer: one(customersTable, {
-    fields: [transactionsTable.customer_id],
-    references: [customersTable.id],
-  }),
-  items: many(transactionItemsTable),
-}));
-
-export const transactionItemsRelations = relations(transactionItemsTable, ({ one }) => ({
-  transaction: one(transactionsTable, {
-    fields: [transactionItemsTable.transaction_id],
-    references: [transactionsTable.id],
+export const orderItemsRelations = relations(orderItemsTable, ({ one }) => ({
+  order: one(ordersTable, {
+    fields: [orderItemsTable.order_id],
+    references: [ordersTable.id],
   }),
   product: one(productsTable, {
-    fields: [transactionItemsTable.product_id],
+    fields: [orderItemsTable.product_id],
     references: [productsTable.id],
   }),
+}));
+
+export const productsRelations = relations(productsTable, ({ many }) => ({
+  orderItems: many(orderItemsTable),
 }));
 
 // TypeScript types for the table schemas
 export type Product = typeof productsTable.$inferSelect;
 export type NewProduct = typeof productsTable.$inferInsert;
 
-export type Customer = typeof customersTable.$inferSelect;
-export type NewCustomer = typeof customersTable.$inferInsert;
+export type Order = typeof ordersTable.$inferSelect;
+export type NewOrder = typeof ordersTable.$inferInsert;
 
-export type Transaction = typeof transactionsTable.$inferSelect;
-export type NewTransaction = typeof transactionsTable.$inferInsert;
-
-export type TransactionItem = typeof transactionItemsTable.$inferSelect;
-export type NewTransactionItem = typeof transactionItemsTable.$inferInsert;
+export type OrderItem = typeof orderItemsTable.$inferSelect;
+export type NewOrderItem = typeof orderItemsTable.$inferInsert;
 
 // Export all tables and relations for proper query building
-export const tables = {
+export const tables = { 
   products: productsTable,
-  customers: customersTable,
-  transactions: transactionsTable,
-  transactionItems: transactionItemsTable
+  orders: ordersTable,
+  orderItems: orderItemsTable
+};
+
+export const tableRelations = {
+  ordersRelations,
+  orderItemsRelations,
+  productsRelations
 };

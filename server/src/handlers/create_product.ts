@@ -1,18 +1,15 @@
 import { type CreateProductInput, type Product } from '../schema';
 
-export const createProduct = async (input: CreateProductInput): Promise<Product> => {
+export async function createProduct(input: CreateProductInput): Promise<Product> {
     // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new product and persisting it in the database.
-    // It should validate the input, insert the product into the products table,
-    // and return the created product with generated ID and timestamps.
+    // The goal of this handler is creating a new product with QR code identifier,
+    // persisting it in the database and ensuring QR code uniqueness.
     return Promise.resolve({
         id: 0, // Placeholder ID
+        qr_code: input.qr_code,
         name: input.name,
-        description: input.description,
-        stock_quantity: input.stock_quantity,
-        purchase_price: input.purchase_price,
-        selling_price: input.selling_price,
+        price: input.price,
         created_at: new Date(),
         updated_at: new Date()
     } as Product);
-};
+}
